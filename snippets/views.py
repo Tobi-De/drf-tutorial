@@ -1,21 +1,37 @@
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from django.contrib.auth.models import User
+from rest_framework import renderers, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
 
 from snippets.models import Snippet
-from snippets.serializers import SnippetSerializer
+from snippets.serializers import SnippetSerializer, UserSerializer
+from .permissions import IsOwnerOrReadOnly
 
 
-class SnippetList(ListCreateAPIView):
+class SnippetViewSet(viewsets.ModelViewSet):
     """
-       List all snippets, or create a new snippet.
+        This viewset automatically provides `list`, `create`, `retrieve`,
+        `update` and `destroy` actions.
+
+        Additionally we also provide an extra `highlight` action.
     """
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
+
+    @action(detail=True, renderer_classes=[renderers.StaticHTMLRenderer])
+    def highlight(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
-class SnippetDetail(RetrieveUpdateDestroyAPIView):
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
     """
-        Retrieve, update or delete a code snippet.
+        This viewset automatically provides `list` and `detail` actions.
     """
-
-    queryset = Snippet.objects.all()
-    serializer_class = SnippetSerializer
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
